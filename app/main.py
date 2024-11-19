@@ -2,47 +2,103 @@ import pathlib
 import os
 import io
 import uuid
-
+from functools import lru_cache
 from fastapi import(
-        FastAPI, 
-        Request,
-        Depends,
-        File,
-        UploadFile,
-        )  
+    FastAPI,
+    Header,
+    HTTPException,
+    Depends,
+    Request,
+    File,
+    UploadFile
+    )
+from dotenv import load_dotenv
+import pytesseract
 from fastapi.responses import HTMLResponse, FileResponse
 from fastapi.templating import Jinja2Templates
+from pydantic_settings import BaseSettings, SettingsConfigDict 
+from pydantic import field_validator
+from PIL import Image
 
-class Settings(BaseSettings):
+load_dotenv('.venv')
+class Settings(BaseSettings):            
+    app_auth_token: str
     debug: bool = False
     echo_active: bool = False
-    class config:
-        
+    app_auth_token_prod: str = None
+    skip_auth: bool = False
+    
+    model_config = SettingsConfigDict(
+        env_file='.venv', 
+        env_file_encoding='utf-8',
+        validate_default=False,
+        extra='ignore'
+        )
+
+
+
+@lru_cache
+def get_settings():
+    return Settings()
+
+settings = get_settings()
+DEBUG=settings.debug
 
 BASE_DIR = pathlib.Path(__file__).parent
-UPLOAD_DIR = BASE_DIR / 'uploaded'
+UPLOAD_DIR = BASE_DIR / "uploads"
 
-print(BASE_DIR / 'templates')
+
 app = FastAPI()
 templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 
-@app.get('/', response_class=HTMLResponse)
-async def home_view(request: Request):
-    return templates.TemplateResponse({"request": request, "abc": 123}, "home.html", )
 
-@app.post('/')
-async def home_detail_view():
-    return {"hello": "world"}
+@app.get("/", response_class=HTMLResponse) # http GET -> JSON
+def home_view(request: Request, settings:Settings = Depends(get_settings)):
+    return templates.TemplateResponse({"request": request, "abc": 123}, "home.html")
 
-@app.post('/img-echo/', response_class=FileResponse)
-async def img_echo_view(file: UploadFile = File(...)):
+print(settings.debug)
+
+def verify_auth(authorization = Header(None), settings:Settings = Depends(get_settings)):
+    """
+    Authorization: Bearer <token>
+    {"authorization": "Bearer <token>"}
+    """
+    print(dict(settings))
+    if settings.debug and settings.skip_auth:
+        return
+    if authorization is None:
+        raise HTTPException(detail="Invalid endpoint", status_code=401)
+    label, token = authorization.split()
+    if token != settings.app_auth_token:
+        raise HTTPException(detail="Invalid endpoint", status_code=401)
+
+
+@app.post("/") # http POST
+async def prediction_view(file:UploadFile = File(...), authorization = Header(None), settings:Settings = Depends(get_settings)):
+    verify_auth(authorization, settings)
     bytes_str = io.BytesIO(await file.read())
-    fname = pathlib.Path(file.filename)
-    fext = fname.suffix
-    
-    dest = UPLOAD_DIR / f"{uuid.uuid1()}{fext}"
-    with open(str(dest), 'wb') as out:
-        out.write(bytes_str.read())
-        
-    return dest
+    try:
+        img = Image.open(bytes_str)
+    except:
+        raise HTTPException(detail="Invalid image", status_code=400)
+    preds = pytesseract.image_to_string(img)
+    predictions = [x for x in preds.split("\n")]
+    return {"results": predictions, "original": preds}
 
+
+@app.post("/img-echo/", response_class=FileResponse) # http POST
+async def img_echo_view(file:UploadFile = File(...), settings:Settings = Depends(get_settings)):
+    print(f"settings.echo_view: {settings.echo_active}")
+    if not settings.echo_active:
+        raise HTTPException(detail="Invalid endpoint", status_code=400)
+    UPLOAD_DIR.mkdir(exist_ok=True)
+    bytes_str = io.BytesIO(await file.read())
+    try:
+        img = Image.open(bytes_str)
+    except:
+        raise HTTPException(detail="Invalid image", status_code=400)
+    fname = pathlib.Path(file.filename)
+    fext = fname.suffix # .jpg, .txt
+    dest = UPLOAD_DIR / f"{uuid.uuid1()}{fext}"
+    img.save(dest)
+    return dest

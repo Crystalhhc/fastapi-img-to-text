@@ -6,4 +6,11 @@ pytest
 requests
 httpx
 pre-commit
+python-dotenv
+pydantic
+pydantic-settings
+python-multipart
+Pillow
+pytesseract
+
 
