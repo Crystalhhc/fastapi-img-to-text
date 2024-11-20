@@ -1,0 +1,15 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tesseract OCR API</title>
+</head>
+<body>
+    <h1>Tesseract OCR API</h1>
+    <form action="/api/v1/image-to-text/ocr/" method="post" enctype="multipart/form-data">
+        <input type="file" name="file" accept="image/jpeg, image/png">
+        <button type="submit">Perform OCR</button>
+    </form>
+</body>
+</html>
