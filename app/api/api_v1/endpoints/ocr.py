@@ -1,17 +1,17 @@
-from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, Body
+from fastapi import APIRouter, File, UploadFile, HTTPException, Depends, Body, Request
 from fastapi.responses import JSONResponse,FileResponse
-from PIL import Image
+from PIL import Image, UnidentifiedImageError
 import pytesseract
 import io
 import base64
 from typing import List
 from pydantic import BaseModel
+
 import pathlib
 import uuid
 from app.core.config import BASE_DIR, UPLOAD_DIR, get_settings, Settings
 
 router = APIRouter()
-
 
 class BBoxData(BaseModel):
     image: str  # Base64 encoded image data
@@ -20,13 +20,36 @@ class BBoxData(BaseModel):
     width: int
     height: int
 
+@router.post("/upload-file/")
+async def upload_file(file: UploadFile = File(...)) -> BBoxData:
+    contents = await file.read()
+    
+    try:
+        img = Image.open(io.BytesIO(contents))
+    except UnidentifiedImageError:
+        raise HTTPException(status_code=400, detail="Invalid image file")
+
+    # Rest of the function remains the same
+    encoded_string = base64.b64encode(contents).decode('utf-8')
+    width, height = img.size
+
+    payload = {
+        "image": encoded_string,
+        "x": 0,
+        "y": 0,
+        "width": width,
+        "height": height
+    }
+    return payload
+
+
 @router.post("/bbox-to-text/")
 async def bbox_to_text(bbox_data: BBoxData = Body(...)):
     print(bbox_data.image)
     try:
         # Decode the base64 image
-        image_data = base64.b64decode(bbox_data.image)
-        #image_data = bbox_data.image 
+        #image_data = base64.b64decode(bbox_data.image)
+        image_data = bbox_data.image 
         image = Image.open(io.BytesIO(image_data))
         # Crop the image based on bbox
         cropped_image = image.crop((bbox_data.x, bbox_data.y, 

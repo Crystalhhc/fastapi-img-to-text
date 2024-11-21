@@ -7,9 +7,57 @@
 </head>
 <body>
     <h1>Tesseract OCR API</h1>
-    <form action="/api/v1/image-to-text/ocr/" method="post" enctype="multipart/form-data">
-        <input type="file" name="file" accept="image/jpeg, image/png">
+    <form id="ocrForm" enctype="multipart/form-data">
+        <input type="file" name="file" accept="image/jpeg, image/png" required>
         <button type="submit">Perform OCR</button>
     </form>
+    <div id="result"></div>
+
+    <script>
+        document.getElementById('ocrForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            
+            try {
+                // Step 1: Call upload-file
+                const encodingResponse = await fetch('/ocr/upload-file/', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!encodingResponse.ok) {
+                    throw new Error('Encoding file failed');
+                }
+                
+                const encodedData = await encodingResponse.json();
+                
+                // Step 2: Call bbox-to-text
+                const bboxResponse = await fetch('/ocr/bbox-to-text/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(encodedData)
+                });
+                
+                if (!bboxResponse.ok) {
+                    throw new Error('OCR process failed');
+                }
+                
+                const ocrResult = await bboxResponse.json();
+                
+                // Display the result
+                document.getElementById('result').innerHTML = `
+                    <h2>OCR Result:</h2>
+                    <p>Full Text: ${ocrResult.full_text}</p>
+                    <p>Word Count: ${ocrResult.word_count}</p>
+                    <p>Character Count: ${ocrResult.char_count}</p>
+                `;
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = `<p>Error: ${error.message}</p>`;
+            }
+        });
+    </script>
 </body>
 </html>
