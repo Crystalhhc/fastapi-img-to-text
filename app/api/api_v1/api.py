@@ -6,7 +6,7 @@ from .endpoints import ocr
 
 templates = Jinja2Templates(directory="templates")
 router = APIRouter()
-router.include_router(ocr.router, prefix='/image-to-text', tags=['OCR'])
+router.include_router(ocr.router, prefix='/ocr', tags=['OCR'])
 
 @router.get("/", response_class=HTMLResponse) # http GET -> JSON
 def home_view(request: Request):
