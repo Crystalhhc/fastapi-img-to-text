@@ -4,16 +4,44 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tesseract OCR API</title>
+    <style>
+        #imagePreview {
+            max-width: 80%;
+            max-height: 300px;
+            margin-top: 20px;
+            margin-left: 20px;
+        }
+
+        #result {
+            background-color:aqua;
+        }
+    </style>
 </head>
 <body>
     <h1>Tesseract OCR API</h1>
     <form id="ocrForm" enctype="multipart/form-data">
-        <input type="file" name="file" accept="image/jpeg, image/png" required>
+        <input type="file" name="file" accept="image/jpeg, image/png, image/jpg" required id="fileInput">
         <button type="submit">Perform OCR</button>
     </form>
+    <img id="imagePreview" style="display: none;" alt="Uploaded image preview">
     <div id="result"></div>
 
     <script>
+        
+        const fileInput = document.getElementById('fileInput');
+        const imagePreview = document.getElementById('imagePreview');
+
+        fileInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    imagePreview.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                }
+                reader.readAsDataURL(file);
+            }
+        });
         document.getElementById('ocrForm').addEventListener('submit', async function(e) {
             e.preventDefault();
             const formData = new FormData(this);

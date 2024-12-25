@@ -14,7 +14,7 @@ from app.core.config import BASE_DIR, UPLOAD_DIR, get_settings, Settings
 router = APIRouter()
 
 class BBoxData(BaseModel):
-    image: str  # Base64 encoded image data
+    image: str    # Base64 encoded image data
     x: int
     y: int
     width: int
@@ -26,20 +26,26 @@ async def upload_file(file: UploadFile = File(...)) -> BBoxData:
     
     try:
         img = Image.open(io.BytesIO(contents))
+        #img = Image.open(contents)
     except UnidentifiedImageError:
         raise HTTPException(status_code=400, detail="Invalid image file")
 
-    # Rest of the function remains the same
-    encoded_string = base64.b64encode(contents).decode('utf-8')
-    width, height = img.size
+    # Convert the image to base64
+    buffered = io.BytesIO()
+    img.save(buffered, format=img.format)
+    img_str = base64.b64encode(buffered.getvalue()).decode()
 
-    payload = {
-        "image": encoded_string,
-        "x": 0,
-        "y": 0,
-        "width": width,
-        "height": height
-    }
+    # Rest of the function remains the same
+    #encoded_string = base64.b64encode(contents).decode('utf-8')
+    width, height = img.size
+    # Declare payload as BBoxData
+    payload = BBoxData(
+        image=img_str,
+        x=0,
+        y=0,
+        width=width,
+        height=height
+    )
     return payload
 
 
@@ -48,8 +54,9 @@ async def bbox_to_text(bbox_data: BBoxData = Body(...)):
     print(bbox_data.image)
     try:
         # Decode the base64 image
-        #image_data = base64.b64decode(bbox_data.image)
-        image_data = bbox_data.image 
+        image_data = base64.b64decode(bbox_data.image)
+        #image_data = bbox_data.image 
+        # convert image stringt to binary
         image = Image.open(io.BytesIO(image_data))
         # Crop the image based on bbox
         cropped_image = image.crop((bbox_data.x, bbox_data.y, 
@@ -57,18 +64,20 @@ async def bbox_to_text(bbox_data: BBoxData = Body(...)):
                                     bbox_data.y + bbox_data.height))
 
         # Perform OCR on the cropped image
-        text = pytesseract.image_to_string(cropped_image)
+        custome_config = r'--oem 3 --psm 6' # It is needed.
+        texts = pytesseract.image_to_string(cropped_image, config=custome_config, lang='chi_tra')
+        #text = pytesseract.image_to_string(cropped_image)
 
         # Split the text into lines and remove empty lines
-        lines: List[str] = [line.strip() for line in text.split('\n') if line.strip()]
+        lines: List[str] = [line.strip() for line in texts.split('\n') if line.strip()]
 
         # Return the extracted text
         return JSONResponse(content={
             "status": "success",
-            "full_text": text,
+            "full_text": texts,
             "lines": lines,
-            "word_count": len(text.split()),
-            "char_count": len(text),
+            "word_count": len(texts.split()),
+            "char_count": len(texts),
             "bbox": {
                 "x": bbox_data.x,
                 "y": bbox_data.y,

@@ -12,5 +12,5 @@ pydantic-settings
 python-multipart
 Pillow
 pytesseract
-
+tesseract --list-langs
 

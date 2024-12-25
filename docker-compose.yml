@@ -1,0 +1,7 @@
+version: '3'
+
+services:
+  fastapi:
+    image: crystalchen/fastapi-img-to-text:latest
+    ports:
+      - "8000:8000"

@@ -27,5 +27,5 @@ def get_settings():
 settings = get_settings()
 DEBUG=settings.debug
 
-BASE_DIR = Path(__file__).parent.parent.parent
+BASE_DIR = Path(__file__).parent.parent.parent # path to /Users/chenhsihu/eval/fastapi-img-to-text/
 UPLOAD_DIR = BASE_DIR / "uploads"
